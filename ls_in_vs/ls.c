@@ -107,9 +107,8 @@ int main(int argc, char **argv, char **env)
 
 	argc -= optind;
 	argv += optind;
-	path_list = argv;
 
-	if (print_list(flag, path_list, argc) > 0)
+	if (print_list(flag, argv, argc) > 0)
 	{
 		fprintf(stderr,"print list error: %s\n",strerror(errno));
 		return EXIT_FAILURE;

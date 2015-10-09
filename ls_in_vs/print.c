@@ -3,126 +3,22 @@
 #include "cmp.h"
 
 /* this is a function to print the result of ls */
-int print_list(struct op_flag flag, char **path_list, int argc)
+int print_list(struct op_flag flag, char **argv, int argc)
 {
-	DIR *dir;
-	struct dirent *dirp;
-	char *local_dir = "./";
-	char **entries = NULL;
-	char *dir_name = NULL;
-	int count_entries = 0;
-	struct stat st;
-	int i = 0;
-	int j = 0;
-	char cur_dir[BUFF_SIZE];
-	getcwd(cur_dir,BUFF_SIZE);
-	//char sub_dir[BUFF_SIZE];
+	FTS *ftsp;
+	FTSENT *fts_list, *p;
+	int fts_options = FTS_COMFOLLOW|FTS_SEEDOT;
+	
+	if ((ftsp = fts_open(argv, fts_options, cmp_pathlist)) == NULL)
+	{
+		fprintf(stderr, "fts cannnot open %s", strerror(errno));
+		return EXIT_FAILURE;
+	}
+	while (p = fts_read(ftsp))
+	{
+		printf("%s:\n", p->fts_name);
+	}
 
-	/* sort when the sort_switch on, otherwise just separate directory and non-directory */
-	if (flag.sort_switch) /* -f */
-	{
-		qsort(path_list, argc, sizeof(path_list), cmp_pathlist);
-	}
-	else
-	{
-		qsort(path_list, argc, sizeof(path_list), nsort_pathlist);
-	}
-	/* all entries stored in path_list, non-dir first */	
-	if (flag.show_subdir&&flag.show_rec) //-R not -d
-	{
-		return print_rec(flag, path_list);
-	}
-	else
-	{
-		/* if there is not path_list input, then default input path is local directory ./ */
-		if (argc == 0)
-		{
-			path_list[argc] = local_dir;
-			argc++;
-		}
-		/* the print format is different when print one argument and more than one */
-		for (i = 0; i < argc; i++)
-		{
-			entries = (char **)malloc(sizeof(char**));
-			if ((lstat(path_list[i], &st)) < 0)
-			{
-				fprintf(stderr, "cannot get stat of %s: %s", path_list[i], strerror(errno));
-				return EXIT_FAILURE;
-			}
-			if (!S_ISDIR(st.st_mode))
-			{
-				//print_file();
-			}
-			else
-			{
-				if (argc > 1)
-				{
-					printf("%s:\n", path_list[i]);
-				}
-				if ((dir = opendir(path_list[i])) == NULL)
-				{
-					fprintf(stderr, "cannot open dir: %s\n", strerror(errno));
-					return EXIT_FAILURE;
-				}
-				else
-				{
-					while ((dirp = readdir(dir)) != NULL)
-					{
-						dir_name = (char *)malloc((PATH_MAX + 1)*sizeof(char));
-						strcpy(dir_name, dirp->d_name);
-						entries = (char **)realloc(entries, (j + 2)*sizeof(char **));
-						entries[j] = dir_name;
-						j++;
-					};
-					count_entries = j;
-					entries[count_entries] = NULL;
-				}
-				//////////////////////////////////////////////////////////////////////////
-				chdir(path_list[i]);
-				entries = sort_list(flag, entries, count_entries);
-				if (flag.print_long)
-				{
-					print_long(flag, entries, count_entries);
-				}
-				else
-				{
-					print_short(flag, entries, count_entries);
-				}
-				chdir(cur_dir);
-				/* print extra \n for multi-row output */
-				if (i < argc - 1)
-				{
-					printf("\n");
-				}
-				//////////////////////////////////////////////////////////////////////////
-				/* clean */
-				j = 0;
-				count_entries = 0;
-				while (entries[j] != NULL)
-				{
-					free(entries[j]);
-					entries[i] = NULL;
-					j++;
-				}
-				free(entries);
-				entries = NULL;
-				closedir(dir);
-				j = 0;
-			}
-		}
-
-	}
-	return 0;
-}
-
-int print_long(struct op_flag flag, char **entries, int count_entries)
-{
-	int i = 0;
-	for (i = 0; i < count_entries; i++)
-	{
-		printf("%s ", entries[i]);
-	}
-	printf("\n");
 
 	return 0;
 }

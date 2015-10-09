@@ -19,38 +19,30 @@
  * this function sorts the list of entries and put non-directory ahead,
  * then sort each part in lexicographical order
  */
-int cmp_pathlist(const void *p1, const void *p2)
+int cmp_pathlist(const FTSENT **p1, const FTSENT **p2)
 {
-	struct stat st1;
-	struct stat st2;
-	if (lstat(*(char * const *)p1, &st1) < 0)
+	struct stat *st1 = (*p1)->fts_statp;
+	struct stat *st2 = (*p2)->fts_statp;
+	if (S_ISDIR(st1->st_mode))
 	{
-		fprintf(stderr, "cannot get stat of %s: %s", (char *)p1, strerror(errno));
-	}
-	if (lstat(*(char * const *)p2, &st2) < 0)
-	{
-		fprintf(stderr, "cannot get stat of %s: %s", (char *)p2, strerror(errno));
-	}
-	if (S_ISDIR(st1.st_mode))
-	{
-		if (S_ISDIR(st2.st_mode))
+		if (S_ISDIR(st2->st_mode))
 		{
-			return strcmp(*(char * const *)p1, *(char * const *)p2);
+			return strcmp((*p1)->fts_name, (*p2)->fts_name);
 		}
 		else // non-directory
 		{
 			return LTHAN;
 		}
 	}
-	else  //non-directory
+	else
 	{
-		if (S_ISDIR(st2.st_mode))
+		if (S_ISDIR(st2->st_mode))
 		{
 			return STHAN;
 		}
-		else //non-dirctory
+		else // non-directory
 		{
-			return strcmp(*(char * const *)p1, *(char * const *)p2);
+			return strcmp((*p1)->fts_name, (*p2)->fts_name);
 		}
 	}
 }

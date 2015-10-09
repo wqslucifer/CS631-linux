@@ -10,7 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-
+#include <fts.h>
 
 #ifdef WINDOWS
 #include "unistd.h"

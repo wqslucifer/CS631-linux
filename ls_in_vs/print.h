@@ -14,7 +14,7 @@
 #include "ls.h"
 #include <sys/ioctl.h>
 
-int print_list(struct op_flag flag, char **path_list, int argc);
+int print_list(struct op_flag flag, char **argv, int argc);
 int print_long(struct op_flag flag, char **entries, int count_entries);
 int print_short(struct op_flag flag, char **entries, int count_entries);
 int print_rec(struct op_flag flag, char **path_list);
