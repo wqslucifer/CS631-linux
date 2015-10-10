@@ -41,9 +41,17 @@ struct op_flag initial_flag(struct op_flag flag, char **env);
 void print_flag(struct op_flag op);
 
 
+int cmp_pathlist(const FTSENT *p1, const FTSENT *p2);
+int cmp_LEXORD(const FTSENT *p1, const FTSENT *p2);
+int cmp_LFIRST(const FTSENT *p1, const FTSENT *p2);
+int cmp_ATIME(const FTSENT *p1, const FTSENT *p2);
+int cmp_MTIME(const FTSENT *p1, const FTSENT *p2); 
+int cmp_CTIME(const FTSENT *p1, const FTSENT *p2);
 
 struct op_flag
 {
+	int argc;
+
 	int user_type;			/* 0: super-user
 							* 1: local-user
 							*/

@@ -7,7 +7,8 @@
 #include <errno.h>
 #include <string.h>
 
-#include "cmp.h"
+#include "ls.h"
+#include "print.h"
 
 #define LTHAN 1
 #define EQUAL 0
@@ -19,88 +20,71 @@
  * this function sorts the list of entries and put non-directory ahead,
  * then sort each part in lexicographical order
  */
-int cmp_pathlist(const FTSENT **p1, const FTSENT **p2)
+
+int cmp_pathlist(const FTSENT *p1, const FTSENT *p2)
 {
-	struct stat *st1 = (*p1)->fts_statp;
-	struct stat *st2 = (*p2)->fts_statp;
-	if (S_ISDIR(st1->st_mode))
-	{
-		if (S_ISDIR(st2->st_mode))
-		{
-			return strcmp((*p1)->fts_name, (*p2)->fts_name);
-		}
-		else // non-directory
-		{
-			return LTHAN;
-		}
-	}
-	else
-	{
-		if (S_ISDIR(st2->st_mode))
-		{
-			return STHAN;
-		}
-		else // non-directory
-		{
-			return strcmp((*p1)->fts_name, (*p2)->fts_name);
-		}
-	}
+	return strcmp(p1->fts_name, p2->fts_name);
 }
 /* separate the input entries, just put non-directory ahead */
-int nsort_pathlist(const void *p1, const void *p2)
-{
-	struct stat st1;
-	struct stat st2;
-	if (lstat(*(char * const *)p1, &st1) < 0)
-	{
-		fprintf(stderr, "cannot get stat of %s: %s", (char *)p1, strerror(errno));
-	}
-	if (lstat(*(char * const *)p2, &st2) < 0)
-	{
-		fprintf(stderr, "cannot get stat of %s: %s", (char *)p2, strerror(errno));
-	}
-	if (S_ISDIR(st1.st_mode))
-	{
-		if (S_ISDIR(st2.st_mode))
-		{
-			return EQUAL;
-		}
-		else // non-directory
-		{
-			return LTHAN;
-		}
-	}
-	else  //non-directory
-	{
-		if (S_ISDIR(st2.st_mode))
-		{
-			return STHAN;
-		}
-		else //non-dirctory
-		{
-			return EQUAL;
-		}
-	}
-}
 
 /* simply compare in lexicographical order */
-int cmp_LEXORD(const void *p1, const void *p2)
+int cmp_LEXORD(const FTSENT *p1, const FTSENT *p2)
 {
-	return strcmp(*(char * const *)p1, *(char * const *)p2);
+	return strcmp(p1->fts_name, p2->fts_name);
 }
 
 /* large file first */
-int cmp_LFIRST(const void *p1, const void *p2)
+int cmp_LFIRST(const FTSENT *p1, const FTSENT *p2)
 {
-	struct stat st1;
-	struct stat st2;
-	if (lstat(*(char * const *)p1, &st1) < 0)
-	{
-		fprintf(stderr, "cannot get stat of %s: %s", (char *)p1, strerror(errno));
-	}
-	if (lstat(*(char * const *)p2, &st2) < 0)
-	{
-		fprintf(stderr, "cannot get stat of %s: %s", (char *)p2, strerror(errno));
-	}
-	return st1.st_size > st1.st_size ? STHAN : (st1.st_size < st2.st_size ? LTHAN : ENOENT);
+	struct stat *st1;
+	struct stat *st2;
+	if (p1->fts_info == FTS_ERR || p2->fts_info == FTS_ERR)
+		return cmp_LEXORD(p1, p1);
+	if (p1->fts_info == FTS_NS || p2->fts_info == FTS_NS)
+		return cmp_LEXORD(p1, p1);
+	st1 = p1->fts_statp;
+	st2 = p2->fts_statp;
+	return st1->st_size > st2->st_size ? STHAN : (st1->st_size < st2->st_size ? LTHAN : cmp_LEXORD(p1, p1));
+}
+
+/* sort with access time */
+int cmp_ATIME(const FTSENT *p1, const FTSENT *p2)
+{
+	struct stat *st1;
+	struct stat *st2;
+	if (p1->fts_info == FTS_ERR || p2->fts_info == FTS_ERR)
+		return cmp_LEXORD(p1, p1);
+	if (p1->fts_info == FTS_NS || p2->fts_info == FTS_NS)
+		return cmp_LEXORD(p1, p1);
+	st1 = p1->fts_statp;
+	st2 = p2->fts_statp;
+	return st1->st_atime > st2->st_atime ? STHAN : (st1->st_atime < st2->st_atime ? LTHAN : cmp_LEXORD(p1, p1));
+}
+
+/* sort with modified time */
+int cmp_MTIME(const FTSENT *p1, const FTSENT *p2)
+{
+	struct stat *st1;
+	struct stat *st2;
+	if (p1->fts_info == FTS_ERR || p2->fts_info == FTS_ERR)
+		return cmp_LEXORD(p1, p1);
+	if (p1->fts_info == FTS_NS || p2->fts_info == FTS_NS)
+		return cmp_LEXORD(p1, p1);
+	st1 = p1->fts_statp;
+	st2 = p2->fts_statp;
+	return st1->st_mtime > st2->st_mtime ? STHAN : (st1->st_mtime < st2->st_mtime ? LTHAN : cmp_LEXORD(p1, p1));
+}
+
+/* sort with changed time */
+int cmp_CTIME(const FTSENT *p1, const FTSENT *p2)
+{
+	struct stat *st1;
+	struct stat *st2;
+	if (p1->fts_info == FTS_ERR || p2->fts_info == FTS_ERR)
+		return cmp_LEXORD(p1, p1);
+	if (p1->fts_info == FTS_NS || p2->fts_info == FTS_NS)
+		return cmp_LEXORD(p1, p1);
+	st1 = p1->fts_statp;
+	st2 = p2->fts_statp;
+	return st1->st_ctime > st2->st_ctime ? STHAN : (st1->st_ctime < st2->st_ctime ? LTHAN : cmp_LEXORD(p1, p1));
 }

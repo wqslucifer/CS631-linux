@@ -4,12 +4,12 @@ ls.c
 #include "ls.h"
 #include "print.h"
 
-
 int main(int argc, char **argv, char **env)
 {
 	int op;
 	struct op_flag flag;
-	char **path_list;
+	static char cur_dir[] = "./";
+	char *cur_dir_argv[] = { cur_dir, NULL };
 	flag = initial_flag(flag, env);	/* set initial flag for user and terminal */
 #ifndef DEBUG
 	setprogname(argv[PROGRAM_NAME]);
@@ -19,14 +19,14 @@ int main(int argc, char **argv, char **env)
 		switch (op)
 		{
 		case 'A':
-			flag.show_dot = 1;
+			flag.show_dot_file = 1;
 			break;
 		case 'a':
+			flag.show_dot = 1;
 			flag.show_dot_file = 1;
 			break;
 		case 'c':
 			flag.sort_switch = 1; // on
-			flag.sort_mode = O_TIME_MODE;
 			flag.show_time_mode = 0;	/* time: file status last changed */
 			break;
 		case 'C':
@@ -57,10 +57,12 @@ int main(int argc, char **argv, char **env)
 			break;
 		case 'l'://L
 			flag.print_long = 1;
+			flag.show_slink = 0;
 			break;
 		case 'n':
 			flag.print_long = 1;
 			flag.name_id = 1;
+			flag.show_slink = 0;
 			break;
 		case 'q':
 			flag.non_printable = 1;
@@ -85,7 +87,6 @@ int main(int argc, char **argv, char **env)
 			break;
 		case 'u':
 			flag.sort_switch = 1;
-			flag.sort_mode = O_TIME_MODE;
 			flag.show_time_mode = T_LACCESS;
 			break;
 		case 'w':
@@ -108,12 +109,18 @@ int main(int argc, char **argv, char **env)
 	argc -= optind;
 	argv += optind;
 
+	if (!argc)
+	{
+		argv = cur_dir_argv;
+		argc++;
+	}
+	flag.argc = argc;
+
 	if (print_list(flag, argv, argc) > 0)
 	{
 		fprintf(stderr,"print list error: %s\n",strerror(errno));
 		return EXIT_FAILURE;
 	}
-	
 	
 	return EXIT_SUCCESS;
 }
