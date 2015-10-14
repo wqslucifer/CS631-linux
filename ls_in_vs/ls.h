@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
+#include <math.h>
 
 #ifdef WINDOWS
 #include "unistd.h"
@@ -98,6 +99,15 @@ struct op_flag
 	int non_printable;		/* terminal -> '?'  not terminal -> force raw printing */
 	int show_block;			/* -s: show the number of file system blocks */
 
+	//////////////////////////////////////////////////////////////////////////
+	int Msize_length;
+	int Mnlinks;
+	int Muser_name;
+	int Mgroup_name;
+	int Muser_id;
+	int Mgroup_id;
+	int Minode_length;
+	int Mblk_length;
 };
 struct file_time
 {

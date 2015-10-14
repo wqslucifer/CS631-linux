@@ -27,7 +27,8 @@ int main(int argc, char **argv, char **env)
 			break;
 		case 'c':
 			flag.sort_switch = 1; // on
-			flag.show_time_mode = 0;	/* time: file status last changed */
+			flag.sort_mode = O_TIME_MODE;
+			flag.show_time_mode = T_LCHANGE;	/* time: file status last changed */
 			break;
 		case 'C':
 			flag.show_multi_column = 1;
@@ -87,6 +88,7 @@ int main(int argc, char **argv, char **env)
 			break;
 		case 'u':
 			flag.sort_switch = 1;
+			flag.sort_mode = O_TIME_MODE;
 			flag.show_time_mode = T_LACCESS;
 			break;
 		case 'w':
@@ -178,7 +180,14 @@ struct op_flag initial_flag(struct op_flag flag, char **env)
 			flag.force_one_line = 1;
 		}
 	}
-
+	flag.Msize_length = 0;
+	flag.Mnlinks = 0;
+	flag.Muser_name = 0;
+	flag.Mgroup_name = 0;
+	flag.Muser_id = 0;
+	flag.Mgroup_id = 0;
+	flag.Minode_length = 0;
+	flag.Mblk_length = 0;
 	return flag;
 }
 

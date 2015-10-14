@@ -22,6 +22,8 @@
 #include <pwd.h>
 #include <grp.h>
 #include <time.h>
+#include <string.h>
+
 
 int print_list(struct op_flag flag, char **argv, int argc);
 int print_long(struct op_flag flag, FTSENT *fts_root, FTSENT* fts_list);
@@ -34,7 +36,8 @@ int set_options(struct op_flag flag);
 void print_permission(struct op_flag flag, FTSENT *p);
 void print_time(struct op_flag flag, FTSENT *p);
 void print_symbol(struct op_flag flag, FTSENT *p);
-
-
-
+void print_size(struct op_flag flag, FTSENT *p);
+struct op_flag get_max(struct op_flag flag, FTS *ftsp);
+void print_total(struct op_flag flag, FTS *ftsp);
+void print_file(struct op_flag flag, FTSENT *p);
 #endif // !_PRINT_H

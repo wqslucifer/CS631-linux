@@ -2,8 +2,8 @@
 #include "ls.h"
 #include "cmp.h"
 
-
 static int(*cmp)(const FTSENT *, const FTSENT *);
+
 /* this is a function to print the result of ls */
 int print_list(struct op_flag flag, char **argv, int argc)
 {
@@ -11,7 +11,15 @@ int print_list(struct op_flag flag, char **argv, int argc)
 	FTSENT *fts_list, *p;
 	int fts_options = set_options(flag);
 	(void)sort_list(flag);
-	if ((ftsp = fts_open(argv, fts_options, cmp_entry)) == NULL)
+	if (cmp == NULL)
+	{
+		if ((ftsp = fts_open(argv, fts_options, 0)) == NULL)
+		{
+			fprintf(stderr, "fts cannnot open %s", strerror(errno));
+			return EXIT_FAILURE;
+		}
+	}
+	else if ((ftsp = fts_open(argv, fts_options, cmp_entry)) == NULL)
 	{
 		fprintf(stderr, "fts cannnot open %s", strerror(errno));
 		return EXIT_FAILURE;
@@ -20,27 +28,33 @@ int print_list(struct op_flag flag, char **argv, int argc)
 	{
 		fts_list = fts_children(ftsp, 0);
 		if (flag.print_long)
-			return print_long(flag, NULL, fts_list);
+			print_long(flag, NULL, fts_list);
 		else
-			return print_short(flag, NULL, fts_list);
+			print_short(flag, NULL, fts_list);
 	}
 	
 	while (p = fts_read(ftsp))
 	{
 		if (p == NULL)
 			break;
+		flag = get_max(flag, ftsp);
+		(void)print_total(flag, ftsp);
 		switch (p->fts_info)
 		{
 		case FTS_D:
 			/* rule out the other directories in the current directory */
-			if (p->fts_level != FTS_ROOTLEVEL)
+			if (p->fts_level != FTS_ROOTLEVEL&&!flag.show_subdir)
 				break;
 			/* get entries inside */
 			fts_list = fts_children(ftsp, 0);
+			if (flag.show_subdir)
+				printf("%s\n", p->fts_path);
 			if (flag.print_long)
-				return print_long(flag, p, fts_list);
+				print_long(flag, p, fts_list);
 			else
-				return print_short(flag, p, fts_list);
+				print_short(flag, p, fts_list);
+			if (!flag.show_subdir&&fts_list != NULL)
+				fts_set(ftsp, p, FTS_SKIP);
 			break;
 		default:
 			break;
@@ -53,14 +67,22 @@ int print_short(struct op_flag flag, FTSENT *fts_root, FTSENT* fts_list)
 {
 	FTSENT *p;
 	struct stat *st;
+	int only_file = 0;
+	if (fts_root == NULL)
+	{
+		only_file = 1;
+	}
+
 	if (fts_root != NULL&&flag.argc > 1)
 		printf("%s\n", fts_root->fts_path);
-	//struct winsize ws;
-	//ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws); // size in each letter
-	//printf("columns %d\n", ws.ws_col);
 
 	for (p = fts_list; p; p = p->fts_link)
 	{
+		if (only_file)
+		{
+			if (p->fts_info == FTS_D)
+				continue;
+		}
 		if (p->fts_info == FTS_ERR || p->fts_info == FTS_NS)
 			return EXIT_FAILURE;
 		if (!flag.show_dot_file)
@@ -71,19 +93,17 @@ int print_short(struct op_flag flag, FTSENT *fts_root, FTSENT* fts_list)
 		st = p->fts_statp;
 		// the following inside for loop can be one function
 		if (flag.show_inode)
-		{
 			printf("%d ", (int)st->st_ino);
-		}
-		if (flag.show_block) // -s something goes off
-		{
+		if (flag.show_block)
 			printf("%lld ", (long long)st->st_blocks);
-		}
 		printf("%s", p->fts_name);
 		print_symbol(flag, p);
 		/* blank */
 		printf("  ");
 	}
 	printf("\n");
+	if (fts_root != NULL&&flag.show_subdir)
+		printf("\n");
 	/* the print format is different when print one argument and more than one */
 
 	return 0;
@@ -108,12 +128,19 @@ int print_long(struct op_flag flag, FTSENT *fts_root, FTSENT* fts_list)
 			if (p->fts_name[0] == '.')
 				continue;
 		}
-		(void)print_permission(flag, p);
 		st = p->fts_statp;
+		if (flag.show_inode)
+			printf("%*d ", flag.Minode_length, (int)st->st_ino);
+		if (flag.show_block)
+			printf("%*lld ", flag.Mblk_length, (long long)st->st_blocks);
+		(void)print_permission(flag, p);
+
+		printf("%*d ", flag.Mnlinks, (int)st->st_nlink);
+
 		if (flag.name_id)
 		{
-			printf("%5d ", (int)st->st_uid);
-			printf("%5d ", (int)st->st_gid);
+			printf("%*d ", flag.Muser_id, (int)st->st_uid);
+			printf("%*d ", flag.Mgroup_id, (int)st->st_gid);
 		}
 		else
 		{
@@ -121,15 +148,15 @@ int print_long(struct op_flag flag, FTSENT *fts_root, FTSENT* fts_list)
 			user_name = pd->pw_name;
 			group_name = getgrgid(pd->pw_gid)->gr_name;
 			if (user_name != NULL)
-				printf("%s ", user_name);
+				printf("%*s ", flag.Muser_name, user_name);
 			else
-				printf("%5d ", st->st_uid);
+				printf("%*d ", flag.Muser_id, st->st_uid);
 			if (group_name != NULL)
-				printf("%s\t", group_name);
+				printf("%*s ", flag.Mgroup_name, group_name);
 			else
-				printf("%5d ", st->st_gid);
+				printf("%*d ", flag.Mgroup_id, st->st_gid);
 		}
-		//print_size();
+		(void)print_size(flag, p);
 		(void)print_time(flag, p);
 		printf("%s", p->fts_name);
 		(void)print_symbol(flag, p);
@@ -157,7 +184,7 @@ void sort_list(struct op_flag flag)
 	{
 		switch (flag.sort_mode)
 		{
-		case O_LEXICO: 
+		case O_LEXICO:
 			cmp = cmp_LEXORD;
 			break;
 		case O_SMALL_ENTRY: //-r
@@ -331,7 +358,8 @@ void print_permission(struct op_flag flag, FTSENT *p)
 		printf("T");
 	else
 		printf("-");
-	printf("+ ");
+	if (p->fts_level != -1)
+		printf("+ ");
 }
 
 
@@ -382,4 +410,94 @@ void print_symbol(struct op_flag flag, FTSENT *p)
 		if (S_ISFIFO(st->st_mode))
 			printf("|");
 	}
+}
+
+void print_size(struct op_flag flag, FTSENT *p)
+{
+	struct stat *st;
+	if (p->fts_info == FTS_ERR || p->fts_info == FTS_NS)
+	{
+		fprintf(stderr, "cannot get fts_info or stat %s", strerror(errno));
+	}
+	st = p->fts_statp;
+	printf("%*lld ", flag.Msize_length, (long long)st->st_size);
+}
+ 
+struct op_flag get_max(struct op_flag flag, FTS *ftsp)
+{
+	int Msize_length = 0;
+	int Mnlinks = 0;
+	int Muser_name = 0;
+	int Mgroup_name = 0;
+	int Muser_id = 0;
+	int Mgroup_id = 0;
+	int Minode_length = 0;
+	int Mblk_length = 0;
+	FTSENT *fts_list, *p;
+	int len;
+	struct stat *st;
+	struct passwd *pd;
+	char *user_name;
+	char *group_name;
+
+	fts_list = fts_children(ftsp, 0);
+	for (p = fts_list; p; p = p->fts_link)
+	{
+		st = p->fts_statp;
+		// file size length
+		len = (int)(log10(abs((long long)(st->st_size)))) + 1;
+		len > Msize_length ? Msize_length = len : Msize_length;
+		// number of links
+		len = (int)(log10(abs((long long)(st->st_nlink)))) + 1;
+		len > Mnlinks ? Mnlinks = len : Mnlinks;
+		// user name
+		pd = getpwuid(st->st_uid);
+		user_name = pd->pw_name;
+		group_name = getgrgid(pd->pw_gid)->gr_name;
+		len = strlen(user_name);
+		len > Muser_name ? Muser_name = len : Muser_name;
+		len = strlen(group_name);
+		len > Mgroup_name ? Mgroup_name = len : Mgroup_name;
+		len = (int)(log10(abs((st->st_uid)))) + 1;
+		len > Muser_id ? Muser_id = len : Muser_id;
+		len = (int)(log10(abs((st->st_gid)))) + 1;
+		len > Mgroup_id ? Mgroup_id = len : Mgroup_id;
+		// inode
+		if (flag.show_inode)
+		{
+			len = (int)(log10(abs(((int)st->st_ino)))) + 1;
+			len > Minode_length ? Minode_length = len : Minode_length;
+		}
+		// block
+		if (flag.show_block)
+		{
+			len = (int)(log10(abs((long long)st->st_blocks))) + 1;
+			len > Mblk_length ? Mblk_length = len : Mblk_length;
+		}
+	}
+	flag.Msize_length = Msize_length;
+	flag.Mnlinks = Mnlinks;
+	flag.Muser_name = Muser_name;
+	flag.Mgroup_name = Mgroup_name;
+	flag.Muser_id = Muser_id;
+	flag.Mgroup_id = Mgroup_id;
+	flag.Minode_length = Minode_length;
+	flag.Mblk_length = Mblk_length;
+	return flag;
+}
+
+void print_total(struct op_flag flag, FTS *ftsp)
+{
+
+}
+
+void print_file(struct op_flag flag, FTSENT *p)
+{
+	struct stat *st;
+	if (p->fts_info == FTS_ERR || p->fts_info == FTS_NS)
+	{
+		fprintf(stderr, "cannot get fts_info or stat %s", strerror(errno));
+	}
+	st = p->fts_statp;
+	printf("%s", p->fts_name);
 }
