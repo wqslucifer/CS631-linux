@@ -8,15 +8,13 @@
 #define BUFSIZE 512
 
 static int(*cmp)(const FTSENT *, const FTSENT *);
-static int printout = 0;
+static int printout;
 /* this is a function to print the result of ls */
 int print_list(struct op_flag flag, char **argv, int argc)
 {
 	FTS *ftsp;
 	FTSENT *fts_list, *p;
-	int err = 0;
 	int fts_options = set_options(flag);
-	printout = 0;
 	(void)sort_list(flag);
 	if (cmp == NULL||!flag.show_slink)
 	{
@@ -65,20 +63,18 @@ int print_list(struct op_flag flag, char **argv, int argc)
 			break;
 		case FTS_D:
 			/* rule out the other directories in the current directory */
-			if (p->fts_level != FTS_ROOTLEVEL&&!flag.show_dot_file&&p->fts_name[0] == '.')
+			if (p->fts_level != FTS_ROOTLEVEL&&!flag.show_subdir&&
+				!flag.show_dot_file&&p->fts_name[0] == '.')
 				break;
 			/* get entries inside */
-			if (!err)
-			{
-				if (printout)
-					printf("\n%s:\n", p->fts_path);
-				else if (argc > 1) {
-					printf("%s:\n", p->fts_path);
-					printout = 1;
-				}
+			if (printout)
+				printf("\na%s:\n", p->fts_path);
+			else if (argc > 1) {
+				printf("b%s:\n", p->fts_path);
+				printout = 1;
 			}
 			fts_list = fts_children(ftsp, 0);
-			err = errno;
+
 			if (flag.print_long)
 				print_long(flag, p, fts_list);
 			else
@@ -153,6 +149,10 @@ int print_long(struct op_flag flag, FTSENT *fts_root, FTSENT* fts_list)
 	int only_file = 0;
 	if (fts_root == NULL)
 		only_file = 1;
+
+	if (fts_root != NULL&&flag.argc > 1)
+		printf("%s\n", fts_root->fts_path);
+
 
 	for (p = fts_list; p; p = p->fts_link)
 	{
@@ -246,16 +246,17 @@ int print_mcshort(struct op_flag flag, FTSENT *fts_root, FTSENT* fts_list)
 		printf("  ");
 		if (flag.force_one_line)
 			printf("\n");
-		printout = 1;
 	}
 	if (fts_root != NULL&&fts_root->fts_link != NULL&& !flag.show_subdir)
-		printf("1\n");
+		printf("1\n\n");
 	if (fts_root != NULL&&fts_root->fts_link == NULL&& count_arg > 1 && !flag.show_subdir)
 		printf("2\n");
 	if (count_arg > 1 && flag.show_subdir)
 		printf("3\n");
-
+	if (fts_root != NULL&&flag.show_subdir)
+		printf("4\n");
 	/* the print format is different when print one argument and more than one */
+	printout = 1;
 	
 	return 0;
 }
